@@ -11,7 +11,7 @@ function Login() {
     event.preventDefault();
 
     if (!usuario || !senha) {
-      alert("Preencha usuário e senha.");
+      alert("Preencha usuário e senha");
       return;
     }
 
