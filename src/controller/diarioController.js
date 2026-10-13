@@ -1,171 +1,109 @@
-import * as diarioService
-    from "../services/diarioService.js";
+import * as diarioService from "../services/services.js";
+import { con } from "../repository/connection.js";
 
-import {
-    buscarSessao
-} from "../services/sessaoService.js";
-
-
-function pegarUsuario(req) {
-    const autorizacao =
-        req.headers.authorization;
-
-    if (!autorizacao) {
-        return null;
-    }
-
-    const partes =
-        autorizacao.split(" ");
-
-    if (partes.length !== 2) {
-        return null;
-    }
-
-    if (partes[0] !== "Bearer") {
-        return null;
-    }
-
-    return buscarSessao(partes[1]);
-}
-
-
-export async function criarEntrada(
-    req,
-    res
-) {
+export async function criarEntrada(req, res) {
     try {
-        const usuario =
-            pegarUsuario(req);
+        const { usuario_id, data, texto } = req.body;
 
-        if (!usuario) {
-            return res.status(401).json({
-                mensagem:
-                    "Faça login para acessar o diário."
-            });
-        }
-
-        const {
+        const entrada = await diarioService.criarEntrada(
+            usuario_id,
             data,
             texto
-        } = req.body;
+        );
 
-        const resultado =
-            await diarioService.criarEntrada(
-                usuario.id,
-                data,
-                texto
-            );
-
-        res.status(201).json(resultado);
-
-    } catch (error) {
-        res.status(400).json({
-            mensagem: error.message
+        return res.status(201).json(entrada);
+    } catch (erro) {
+        return res.status(400).json({
+            mensagem: erro.message
         });
     }
 }
 
-
-export async function listarEntradas(
-    req,
-    res
-) {
+export async function listarEntradas(req, res) {
     try {
-        const usuario =
-            pegarUsuario(req);
+        const { usuario_id, permissao } = req.query;
 
-        if (!usuario) {
-            return res.status(401).json({
-                mensagem:
-                    "Faça login para acessar o diário."
-            });
-        }
+        const entradas = await diarioService.listarEntradas(
+            usuario_id,
+            permissao
+        );
 
-        const pesquisa =
-            req.query.pesquisa;
-
-        const resultado =
-            await diarioService.listarEntradas(
-                usuario.id,
-                usuario.permissao,
-                pesquisa
-            );
-
-        res.status(200).json(resultado);
-
-    } catch (error) {
-        res.status(400).json({
-            mensagem: error.message
+        return res.status(200).json(entradas);
+    } catch (erro) {
+        return res.status(400).json({
+            mensagem: erro.message
         });
     }
 }
 
-
-export async function editarEntrada(
-    req,
-    res
-) {
+export async function editarEntrada(req, res) {
     try {
-        const usuario =
-            pegarUsuario(req);
+        const { id } = req.params;
+        const { usuario_id, data, texto } = req.body;
 
-        if (!usuario) {
-            return res.status(401).json({
-                mensagem:
-                    "Faça login para acessar o diário."
+        if (!id || !usuario_id || !data || !texto?.trim()) {
+            return res.status(400).json({
+                mensagem: "Informe todos os campos."
             });
         }
 
-        const resultado =
-            await diarioService.editarEntrada(
-                req.params.id,
-                usuario.id,
-                usuario.permissao,
-                req.body.data,
-                req.body.texto
-            );
+        const hoje = new Date().toISOString().split("T")[0];
 
-        res.status(200).json({
-            mensagem:
-                "Entrada atualizada com sucesso.",
-            entrada: resultado
+        if (data > hoje) {
+            return res.status(400).json({
+                mensagem: "Não é permitido usar uma data futura."
+            });
+        }
+
+        const [resultado] = await con.execute(
+            "UPDATE diario SET data = ?, texto = ? WHERE id = ? AND usuario_id = ?",
+            [data, texto, id, usuario_id]
+        );
+
+        if (!resultado.affectedRows) {
+            return res.status(404).json({
+                mensagem: "Entrada não encontrada."
+            });
+        }
+
+        return res.status(200).json({
+            mensagem: "Entrada editada com sucesso."
         });
-
-    } catch (error) {
-        res.status(400).json({
-            mensagem: error.message
+    } catch (erro) {
+        return res.status(500).json({
+            mensagem: erro.message
         });
     }
 }
 
-
-export async function excluirEntrada(
-    req,
-    res
-) {
+export async function excluirEntrada(req, res) {
     try {
-        const usuario =
-            pegarUsuario(req);
+        const { id } = req.params;
+        const usuario_id = req.body.usuario_id;
 
-        if (!usuario) {
-            return res.status(401).json({
-                mensagem:
-                    "Faça login para acessar o diário."
+        if (!id || !usuario_id) {
+            return res.status(400).json({
+                mensagem: "Informe o ID e o usuário."
             });
         }
 
-        const resultado =
-            await diarioService.excluirEntrada(
-                req.params.id,
-                usuario.id,
-                usuario.permissao
-            );
+        const [resultado] = await con.execute(
+            "DELETE FROM diario WHERE id = ? AND usuario_id = ?",
+            [id, usuario_id]
+        );
 
-        res.status(200).json(resultado);
+        if (!resultado.affectedRows) {
+            return res.status(404).json({
+                mensagem: "Entrada não encontrada."
+            });
+        }
 
-    } catch (error) {
-        res.status(400).json({
-            mensagem: error.message
+        return res.status(200).json({
+            mensagem: "Entrada excluída com sucesso."
+        });
+    } catch (erro) {
+        return res.status(500).json({
+            mensagem: erro.message
         });
     }
 }

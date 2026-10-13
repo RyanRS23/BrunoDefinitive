@@ -1,3 +1,4 @@
+
 import livrariaController
     from "./controller/livrariaController.js";
 
@@ -15,12 +16,17 @@ import {
     excluirEntrada
 } from "./controller/diarioController.js";
 
+import familiaController
+    from "./controller/familiaController.js";
+
 
 export default function rotear(api) {
 
     api.use(livrariaController);
 
     api.use(clienteController);
+
+    api.use(familiaController);
 
 
     api.post(
@@ -51,4 +57,5 @@ export default function rotear(api) {
         "/diario/:id",
         excluirEntrada
     );
+
 }
